@@ -10,13 +10,38 @@
 ///     fn do(&mut self, r: Request);
 /// }
 ///
+/// One way to do this could be flatten the whole iterator and then call next or next_back
+/// then we would have to allocate
+///
 
-pub fn flatten<O>(iter: O) -> Flatten<O>
+/// Extension trait
+pub trait IteratorExt: Iterator {
+    fn our_flatten(self) -> Flatten<Self>
+    where
+        Self: Sized,
+        Self::Item: IntoIterator;
+}
+
+/// Blanket impl
+impl<T> IteratorExt for T
 where
-    O: Iterator,
-    O::Item: IntoIterator,
+    T: Iterator,
 {
-    Flatten::new(iter)
+    fn our_flatten(self) -> Flatten<Self>
+    where
+        Self: Sized,
+        Self::Item: IntoIterator,
+    {
+        flatten(self)
+    }
+}
+
+pub fn flatten<I>(iter: I) -> Flatten<I::IntoIter>
+where
+    I: IntoIterator,
+    I::Item: IntoIterator,
+{
+    Flatten::new(iter.into_iter())
 }
 
 pub struct Flatten<O>
@@ -25,7 +50,8 @@ where
     O::Item: IntoIterator,
 {
     outer: O,
-    inner: Option<<O::Item as IntoIterator>::IntoIter>,
+    front_iter: Option<<O::Item as IntoIterator>::IntoIter>,
+    back_iter: Option<<O::Item as IntoIterator>::IntoIter>,
 }
 
 impl<O> Flatten<O>
@@ -36,7 +62,8 @@ where
     fn new(iter: O) -> Self {
         Flatten {
             outer: iter,
-            inner: None,
+            front_iter: None,
+            back_iter: None,
         }
     }
 }
@@ -53,15 +80,42 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(ref mut inner_iter) = self.inner {
-                if let Some(i) = inner_iter.next() {
+            if let Some(ref mut front_iter) = self.front_iter {
+                if let Some(i) = front_iter.next() {
                     return Some(i);
                 }
-                self.inner = None;
+                self.front_iter = None;
             }
 
-            let next_inner_iter = self.outer.next()?.into_iter();
-            self.inner = Some(next_inner_iter);
+            if let Some(front_iter) = self.outer.next() {
+                self.front_iter = Some(front_iter.into_iter());
+            } else {
+                return self.back_iter.as_mut()?.next();
+            }
+        }
+    }
+}
+
+impl<O> DoubleEndedIterator for Flatten<O>
+where
+    O: Iterator + DoubleEndedIterator,
+    O::Item: IntoIterator,
+    <O::Item as IntoIterator>::IntoIter: DoubleEndedIterator,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(ref mut back_iter) = self.back_iter {
+                if let Some(i) = back_iter.next_back() {
+                    return Some(i);
+                }
+                self.back_iter = None;
+            }
+
+            if let Some(back_iter) = self.outer.next_back() {
+                self.back_iter = Some(back_iter.into_iter());
+            } else {
+                return self.front_iter.as_mut()?.next_back();
+            }
         }
     }
 }
@@ -77,10 +131,7 @@ mod tests {
 
     #[test]
     fn empty_wide() {
-        assert_eq!(
-            flatten(vec![Vec::<()>::new(), vec![], vec![]].into_iter()).count(),
-            0
-        )
+        assert_eq!(flatten(vec![Vec::<()>::new(), vec![], vec![]]).count(), 0)
     }
 
     #[test]
@@ -95,6 +146,68 @@ mod tests {
 
     #[test]
     fn two_wide() {
-        assert_eq!(flatten(vec![vec![0], vec![1]].into_iter()).count(), 2);
+        assert_eq!(flatten(vec![vec![0], vec![1]]).count(), 2);
+    }
+
+    #[test]
+    fn reverse() {
+        assert_eq!(
+            flatten(std::iter::once(vec![1, 2]))
+                .rev()
+                .collect::<Vec<_>>(),
+            [2, 1]
+        );
+    }
+
+    #[test]
+    fn reverse_wide() {
+        assert_eq!(
+            flatten(vec![vec![0], vec![1]]).rev().collect::<Vec<_>>(),
+            vec![1, 0]
+        );
+    }
+
+    #[test]
+    fn both_ends() {
+        let mut iter = flatten(vec![vec!["a1", "a2", "a3"], vec!["b1", "b2", "b3"]]);
+
+        assert_eq!(iter.next(), Some("a1"));
+        assert_eq!(iter.next_back(), Some("b3"));
+        assert_eq!(iter.next(), Some("a2"));
+        assert_eq!(iter.next_back(), Some("b2"));
+        assert_eq!(iter.next(), Some("a3"));
+        assert_eq!(iter.next_back(), Some("b1"));
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next_back(), None);
+    }
+
+    #[test]
+    fn front_back() {
+        let mut iter = flatten(vec![vec!["a1", "a2"], vec!["b1", "b2"]]);
+
+        assert_eq!(iter.next(), Some("a1"));
+        assert_eq!(iter.next(), Some("a2"));
+        assert_eq!(iter.next_back(), Some("b2"));
+        assert_eq!(iter.next(), Some("b1"));
+    }
+
+    /// we didn't flatten the nested data structures becaues then we would
+    /// have to allocate memory, and therefore following infinite iterator test
+    /// would not have been possbile to run.
+    #[test]
+    fn inf() {
+        let mut iter = flatten((0..).map(|i| 0..i));
+
+        assert_eq!(iter.next(), Some(0));
+        assert_eq!(iter.next(), Some(0));
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), Some(0));
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), Some(2));
+    }
+
+    #[test]
+    fn ext() {
+        assert_eq!((vec![vec![0, 1]].iter().our_flatten()).count(), 2);
     }
 }
