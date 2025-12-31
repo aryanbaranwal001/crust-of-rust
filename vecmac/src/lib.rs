@@ -23,8 +23,10 @@
 // and allocate a new vec with extended storage. this is done incrementatly and hence is costly
 // which is why with capacity is cheap
 
+// unit size doen't take up any space
+
 /// another version
-/// ```
+/// ```ignore
 /// () => {
 ///     Vec::new()
 /// };
@@ -53,15 +55,17 @@ macro_rules! my_mac {
 
     ( $($x:expr),* ) => {{
 
+        // check that count is const
+        const _: usize = $crate::count![@COUNT; $( $x ),*];
 
         #[allow(unused_mut)]
-        let mut vs = Vec::with_capacity($crate::my_mac![@COUNT; $( $x ),*]);
+        let mut vs = Vec::with_capacity($crate::count![@COUNT; $( $x ),*]);
 
         $(vs.push($x);)*
         vs
     }};
 
-    ( $($x:expr,)* $(,)? ) => {{
+    ( $($x:expr,)* ) => {{
         $crate::my_mac![$( $x ),*]
     }};
 
@@ -75,14 +79,20 @@ macro_rules! my_mac {
         vs
     }};
 
+
+
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! count {
     (@COUNT; $( $elem:expr ),* ) => {
-        <[()]>::len(&[$( $crate::my_mac!(@SUBST; $elem) ),*])
+        <[()]>::len(&[$( $crate::count!(@SUBST; $elem) ),*])
     };
 
     (@SUBST; $elem:expr ) => {
         ()
     };
-
 }
 
 #[cfg(test)]
