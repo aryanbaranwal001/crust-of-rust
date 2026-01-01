@@ -1,0 +1,10 @@
+[package]
+name = "macro_proc"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = ["macro_proc_derive"]
+
+[dependencies]
+macro_proc_derive ={ path = "./macro_proc_derive" }
