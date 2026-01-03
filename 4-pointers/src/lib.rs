@@ -1,5 +1,4 @@
 mod cell;
-mod confusion;
-mod race;
-
+mod rc;
+mod refcell;
 // cell is used for smaller values, like numbers or flags

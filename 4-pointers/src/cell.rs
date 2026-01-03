@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 
+mod confusion;
+mod race;
+
 // you are never allowed ot cast a shared refernce to an exclusive referece,
 // only through UnsafeCell, because if you do it by yourself, LLVM might optimize it
 // in a way which doesn't produces the result you want.
@@ -40,10 +43,4 @@ impl<T> Cell<T> {
         // becase !Sync of unsafecell, and it is executing this function instead.
         unsafe { *self.value.get() }
     }
-}
-
-#[cfg(test)]
-mod test {
-
-    use super::*;
 }
