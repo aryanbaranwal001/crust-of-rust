@@ -1,4 +1,5 @@
 // #![warn(missing_docs, missing_debug_implementations)]
+// every type/concrete type has a implicit lifetime to it
 
 pub struct StrSplit<'haystack, D> {
     remainder: Option<&'haystack str>,

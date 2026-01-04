@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-
+// this is used for borrow checker rules in runtime + interior mutability (not implemented here)
 use crate::cell::Cell;
 use std::cell::UnsafeCell;
 use std::ops::{Deref, DerefMut};

@@ -97,7 +97,6 @@ macro_rules! count {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn is_empty() {
