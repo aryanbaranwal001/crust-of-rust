@@ -8,6 +8,8 @@
 // the Rc. IDK why that last line wasn't said by JonHoo, he says that our implementation is
 // incomplete
 
+// this provides with shared ownership
+
 use crate::cell::Cell;
 use std::marker::PhantomData;
 use std::ops::Deref;
