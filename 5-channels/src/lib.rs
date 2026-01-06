@@ -1,6 +1,25 @@
 // removing form the front of a vec has a overhead cost, as it moves every data afterwards
 // to the beginning. Hence we are using VecDeque
 
+// Flavors:
+// - Synchronous channels: Channel where send() can block. Limited capacity.
+//   - Mutex + Condvar + VecDeque
+//   - Atomic VecDeque (atomic queue) + thread::park + thread::Thread::notify
+//
+// - Asynchronous channels: Channel where send() cannot block. Unbounded.
+//   - Mutex + Condvar + VecDeque
+//   - Mutex + Condvar + LinkedList
+//   - Atomic linked list, linked list of T
+//   - Atomic block linked list, linked list of atomic VecDeque<T>
+//
+// - Rendezvous channels: Synchronous with capacity = 0. Used for thread synchronization.
+//
+// - Oneshot channels: Any capacity. In practice, only one call to send().
+//
+// these are different implementations choosen at runtime, for optimizations
+
+// flume, crossbeam
+
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
