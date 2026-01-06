@@ -12,7 +12,7 @@ use std::time::Duration;
 // #[derive(Clone)]
 // not doing this as it requires inner value to be clone as well
 pub struct Sender<T> {
-    inner: Arc<Inner<T>>,
+    shared: Arc<Shared<T>>,
 }
 
 // compiler understands on which type to .clone on, but its just not
@@ -20,49 +20,94 @@ pub struct Sender<T> {
 
 impl<T> Clone for Sender<T> {
     fn clone(&self) -> Self {
+        let mut inner = self.shared.inner.lock().unwrap();
+        inner.senders += 1;
+
         Sender {
-            inner: Arc::clone(&self.inner),
+            shared: Arc::clone(&self.shared),
         }
     }
 }
 
 pub struct Receiver<T> {
-    inner: Arc<Inner<T>>,
+    shared: Arc<Shared<T>>,
+    buffer: VecDeque<T>,
+}
+
+struct Shared<T> {
+    inner: Mutex<Inner<T>>,
+    available: Condvar,
 }
 
 struct Inner<T> {
-    queue: Mutex<VecDeque<T>>,
-    available: Condvar,
+    queue: VecDeque<T>,
+    senders: usize,
+}
+
+impl<T> Drop for Sender<T> {
+    fn drop(&mut self) {
+        let mut inner = self.shared.inner.lock().unwrap();
+        inner.senders -= 1;
+
+        if inner.senders == 0 {
+            self.shared.available.notify_one();
+        }
+
+        // explicit drops are better
+        drop(inner);
+    }
 }
 
 impl<T> Sender<T> {
     fn send(&mut self, t: T) {
-        let mut queue = self.inner.queue.lock().unwrap();
-        queue.push_back(t);
+        let mut inner = self.shared.inner.lock().unwrap();
+        inner.queue.push_back(t);
 
         // you are not required this drop
         // but he did so for ig, improving the performance of it
         // drop(queue);
 
-        self.inner.available.notify_one();
+        self.shared.available.notify_one();
         // even sleeping this thread after notify_one,
         // the other thread received the data;
     }
 }
 
 impl<T> Receiver<T> {
-    fn recv(&mut self) -> T {
-        let mut queue = self.inner.queue.lock().unwrap();
+    fn recv(&mut self) -> Option<T> {
+        if let Some(t) = self.buffer.pop_front() {
+            return Some(t);
+        }
+
+        let mut guard = self.shared.inner.lock().unwrap();
 
         loop {
-            match queue.pop_front() {
-                Some(t) => return t,
+            match guard.queue.pop_front() {
+                Some(t) => {
+                    if !guard.queue.is_empty() {
+                        std::mem::swap(&mut self.buffer, &mut guard.queue);
+                    }
+                    return Some(t);
+                }
+                None if guard.senders == 0 => {
+                    return None;
+                }
+
                 None => {
                     // os can wake this thread for some other reasons, that's why the
                     // for loop
-                    queue = self.inner.available.wait(queue).unwrap();
+                    guard = self.shared.available.wait(guard).unwrap();
                 }
-            }
+            };
+        }
+    }
+}
+
+impl<T> Shared<T> {
+    fn new(vec: VecDeque<T>) -> Self {
+        Shared {
+            inner: Mutex::new(Inner::new(vec)),
+            available: Condvar::new(),
         }
     }
 }
@@ -70,22 +115,23 @@ impl<T> Receiver<T> {
 impl<T> Inner<T> {
     fn new(vec: VecDeque<T>) -> Self {
         Inner {
-            queue: Mutex::new(vec),
-            available: Condvar::new(),
+            queue: vec,
+            senders: 1,
         }
     }
 }
 
 pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
-    let inner = Inner::new(VecDeque::new());
-    let inner = Arc::new(inner);
+    let shared = Shared::new(VecDeque::new());
+    let shared = Arc::new(shared);
 
     (
         Sender {
-            inner: inner.clone(),
+            shared: shared.clone(),
         },
         Receiver {
-            inner: inner.clone(),
+            shared: shared.clone(),
+            buffer: VecDeque::new(),
         },
     )
 }
@@ -153,13 +199,13 @@ mod tests {
     fn ping_pong() {
         let (mut tx, mut rx) = channel();
         tx.send(42);
-        assert_eq!(rx.recv(), 42);
+        assert_eq!(rx.recv().unwrap(), 42);
     }
 
-    // #[test]
-    // fn closed() {
-    //     let (tx, mut rx) = channel::<()>();
-    //     let _ = tx;
-    //     let _ = rx.recv();
-    // }
+    #[test]
+    fn closed() {
+        let (tx, mut rx) = channel::<()>();
+        drop(tx);
+        let _ = rx.recv();
+    }
 }
