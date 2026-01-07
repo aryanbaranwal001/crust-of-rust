@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 
+// when anything gets dropped, compiler needs to know whether to consider the drop
+// a use of anything that's inside it
+//
 // when a type is dropped, its considered a test of use of all the fields of that type
 // So basically this PhantomData type is used to tell compiler that the raw ptr it
 // points to must not outlive the T, this allows compiler to check the drop of Rc,
