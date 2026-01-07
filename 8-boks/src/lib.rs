@@ -1,8 +1,15 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+mod error;
+
+// compiler assuems that suppose we have a type and it takes a generic T, the compiler
+// assumes that the type will use T, if the type implements drop
+
 // when anything gets dropped, compiler needs to know whether to consider the drop
 // a use of anything that's inside it
+
+use std::marker::PhantomData;
 
 pub struct Boks<T> {
     p: *mut T,
@@ -16,13 +23,16 @@ impl<T> Boks<T> {
     }
 }
 
-// impl<T> Drop for Boks<T> {
-//     fn drop(&mut self) {
-//         let _ = unsafe { Box::from_raw(self.p) };
-//         // std::ptr::drop_in_place(self.p);
-//         // this drops the T, but doesn't free the box
-//     }
-// }
+// unsafe impl<#[may_dangle] T> Drop for Boks<T> {
+// this says to compiler that we are promissing that we won't access the T,
+// hence we won't do anything with T
+impl<T> Drop for Boks<T> {
+    fn drop(&mut self) {
+        let _ = unsafe { Box::from_raw(self.p) };
+        // std::ptr::drop_in_place(self.p);
+        // this drops the T, but doesn't free the box
+    }
+}
 
 impl<T> std::ops::Deref for Boks<T> {
     type Target = T;
@@ -48,6 +58,15 @@ impl<T> std::ops::DerefMut for Boks<T> {
     }
 }
 
+use std::fmt::Debug;
+struct Oisann<T: Debug>(T);
+
+impl<T: Debug> Drop for Oisann<T> {
+    fn drop(&mut self) {
+        println!("{:?}", self.0);
+    }
+}
+
 fn main() {
     let x = 42; // x: i32
     let b = Boks::ny(x); // b: Boks<i32>
@@ -57,7 +76,7 @@ fn main() {
     let mut y = 42;
     let mut b = Boks::ny(&mut y);
 
-    println!("{:?}", y);
-
-    **b = 45;
+    let mut z = 42;
+    let b = Boks::ny(Oisann(&mut z));
+    println!("{:?}", z);
 }
