@@ -1,10 +1,16 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+// 51:00
+
 #[cfg(any())]
 mod drop;
+mod empty;
+mod phantom;
 #[cfg(any())]
 mod variance;
+// to print a type use the following
+// std::any::type_name::<T>()
 
 // compiler assuems that suppose we have a type and it takes a generic T, the compiler
 // assumes that the type will use T, if the type implements drop
@@ -103,3 +109,12 @@ fn second() {
     let boks2: Boks<&'static str> = Boks::ny("heisann");
     boks1 = boks2;
 }
+
+/// used nonnull becaue we want T to be covariant which is not possible if we used *mut T
+///
+/// we used phantomdata T because we want compiler to check the dorp impl of T,
+/// when Boks is dropped
+/// - here we are dropping T when boks is dropped and want to let the compiler know that
+/// so it can perform borrow checker rules
+///
+struct Docs;
