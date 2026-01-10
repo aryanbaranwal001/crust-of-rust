@@ -23,6 +23,12 @@ struct Notes;
 /// Loom of tokio-rs
 ///
 /// if you want to learn more: look at some papers that implement concurrent data structures
+///
+/// read_volatile
+///
+/// best way to avoid the subtlies and problem atomics introduce is to never use the in the first place
+/// because you absolutely want to make sure that your program is right, use loom, use threadsanitizer, just anything
+///
 struct N;
 
 #[non_exhaustive]
