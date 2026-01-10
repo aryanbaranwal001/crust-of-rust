@@ -15,6 +15,16 @@
 ///
 struct Notes;
 
+/// the reason why our code still gave correct output with ordering::relaxed, is becauase x86_64 gives
+/// the architecture basically guarantees acquire-release semantics for all operations
+///
+/// SeqCst interact with SeqCst, Acq can interact with this though
+/// ThreadSanitizerAlgorithm
+/// Loom of tokio-rs
+///
+/// if you want to learn more: look at some papers that implement concurrent data structures
+struct N;
+
 #[non_exhaustive]
 pub enum Ordering {
     Relaxed,
