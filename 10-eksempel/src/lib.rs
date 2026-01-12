@@ -1,66 +1,87 @@
 #![allow(unused)]
 
+mod generics;
 mod notes;
 mod notes2;
+mod notes3;
 mod trait_bound;
 
-pub trait Hei {
-    fn hei(&self);
+pub fn say_hei(s: Box<dyn AsRef<str>>) {
+    // what happens when s goes out of scope?
 
-    fn weird(&self)
-    where
-        Self: Sized,
-    {
-    }
-
-    // we are able to opt out of trait object from here because, dyn Hei, is a unsized
-    // type and only through that we can call on methods, but fn weird has restriction of
-    // self: sized, which doesn't allow to call from dyn Hei which is unsized
-}
-// you can also make a whole type to not allow for trait objects using following bound
-
-/// pub trait Hei
-/// where
-/// Self: Sized, {}
-/// this is done for backwards compatibility reasons
-struct N;
-
-impl Hei for &str {
-    fn hei(&self) {
-        println!("hei {}", self);
-    }
-
-    fn weird(&self) {}
+    // how exactly drop is called on this trait object type?
+    // Ans: every v table stores drop (and some other data) with othre methods,
+    // because ofc its necessary
 }
 
-impl Hei for String {
-    fn hei(&self) {
-        println!("hei {}", self);
-    }
+// And parameters to a fn and return, must always be sized, because
+// compiler can't generate code for the arbitrary
 
-    fn weird(&self) {}
+// dyn Trait -> * -> (*mut data, *mut vtable)
+// [u8]      -> * -> (*mut data, usize length)
+// str       -> * -> (*mut data, usize length)
+
+fn ba_2() -> Box<[u8]> {
+    Box::new([]) as Box<[u8]>
 }
 
-pub fn say_hei(s: &dyn Hei) {
-    // type erasure happens
-    s.hei();
-    // s.weird();
-    // can't do this as weird doesn't take any reference or pointer
+// seach context in std
+// reach RawWakerVTable
 
-    // (dyn Hei)::weird();
-    // can't do this too as compiler doesn't know which weird to call
-    // &str or &String implementation or default one.
-    //
-    // so what we basically want is that, we want to tell compiler we would only
-    // be calling fn hei from the type Hei, when using as trait object. and not the
-    // other functions, for which exactly we have a way
-    //
-    // even if we put &self in weird
-
-    // s.weird();
+struct Foo {
+    f1: bool,
+    f2: bool,
+    data: [u8],
 }
 
-pub fn works() {
-    say_hei(&"s");
-    say_hei(&String::from("value"));
+// last field can be a dst as we statically know the pointer to the dst data,
+// if it was in middle, then pointer values have to be changed at runtime,
+// which doesn't happen.
+
+//-------------------------------------------
+// NOTE: THE FOLLOWING IS OUTDATED, AS LAST EXAMPLE COMPILES
+
+fn foo(f: &dyn Fn()) {} // this is a trait object pointer (wide pointer)
+// has data to calling (because of which the closure can capture the environment)
+// the fn, and also to the vtable (the actual closure/fn addr)
+
+// 1. data
+// 2. closure addr
+
+fn bar<T: Fn()>(f: T) {} // same as below
+fn baz(f: impl Fn()) {}
+
+fn bar2<H>(f: H)
+where
+    H: Fn(), // this has to be a fn, can't be a closure as
+             // Fn() is really a fn pointer
+{
+    // unsafe {
+    //     let x: &[u64] = &std::mem::transmute(f);
+    //     println!("this is bar fn: {:?}", x);
+    // }
 }
+
+// but it seems, they have updated it of some sort
+fn main() {
+    let x = "hello";
+    foo(&|| {
+        let _ = &x;
+    });
+    bar2(|| {
+        let _ = &x;
+    });
+
+    baz(|| {
+        // this impl fn is sort of generic, so for every copy of closure
+        // you pass into, a new baz is created (monomorphiszed), which
+        // might end up making binary big
+        let _ = &x;
+    });
+}
+
+trait X {
+    fn foo(&self, f: &dyn Fn()) {}
+}
+
+fn quox(x: &dyn X) {}

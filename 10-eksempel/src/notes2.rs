@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 pub fn strlen(s: impl AsRef<str>) -> usize {
     s.as_ref().len()
 }
