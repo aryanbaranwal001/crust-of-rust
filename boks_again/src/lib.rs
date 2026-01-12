@@ -1,8 +1,4 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
-#![allow(unused_assignments)]
-#![allow(unused_mut)]
-#![allow(unused_imports)]
+#![allow(unused)]
 
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -42,25 +38,18 @@ impl<T> DerefMut for Boks<T> {
     }
 }
 
-fn main() {
-    let mut x = 42;
-    let mut b = Boks::ny(&mut x);
-
-    // **b = 45;
-    println!("{}", x);
-
-    // println!("{:?}", b);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        main();
-    }
-}
+///```
+/// fn main() {
+///     let mut x = 42;
+///     let mut b = Boks::ny(&mut x);
+///
+///     // **b = 45;
+///     println!("{}", x);
+///
+///     // println!("{:?}", b);
+/// }
+///```
+struct Notes;
 
 // inside a data structure such as b, it you use it in any of its form, b, *b, **b
 // it will be considered as if trying to use the inner refernce to mut T
