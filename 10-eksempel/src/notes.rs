@@ -19,5 +19,27 @@
 /// All elements in the array must exactly the same size
 ///
 /// All type parameters have an implicit bound of Sized.
-
+///
+///
+///
+///```
+/// pub trait Hei {
+///     type Name;    
+///     fn hei(&self);
+/// }
+///
+/// impl Hei for &str {
+///     type Name = ();
+///     fn hei(&self) {
+///         println!("hei {}", self);
+///     }
+/// }
+/// pub fn say_hei(s: &dyn Hei<Name=()>) {
+/// }
+/// ```
+///
+///
+///
+///
+///
 struct Notes;
