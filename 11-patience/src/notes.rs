@@ -53,3 +53,18 @@ use tokio;
 /// so that select! kind of remembers if it .await on, is done through
 /// using shared references or exclusive references to futures.
 struct FusedFutures;
+
+/// StateMachine {
+///     Chunk1 {}
+///     Chunk2 {}
+/// }
+///
+/// you can't use async in trait objects as the fun returns a Future which is a
+/// StateMachine basically holds all the inside futures and other related data.
+/// So each fn gives out a different Future size and compiler doesn't know that
+/// hence it gives an error,
+///
+/// how async trait solves this problem is basically wrapping the Future in Pin<Box>>
+struct AwaitPoints;
+
+use tokio::sync::Mutex as Tmutex;
